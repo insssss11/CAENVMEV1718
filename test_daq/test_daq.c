@@ -15,8 +15,10 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <signal.h>
 #include <unistd.h>
-#include <time.h>
+#include <sys/types.h>
+#include <sys/time.h>
 #include "CAENVMEV1718.h"
 #include "CAENVMEV792N.h"
 #include "CAENVMEV775N.h"
@@ -39,18 +41,33 @@ const uint32_t tdcBase1 = 0xAAAA0000;    // base address of first TDC
 const uint8_t nQdcCh1 = 16; 
 const uint8_t nTdcCh1 = 16; 
 
-const int timeOut = 0;             // zero if no time out limit(in seconds)  
-clock_t tStart; 
+const int timeOut = 0;             // zero if no time out limit(in ms)  
+struct timeval tStart, tStop; 
+
+// to deal with ctrl + c signal
+// When ctrl + c is pressed to kill the process, IntHandler gets called
+// instead of killing the process. 
+bool isQuit = false;
+void IntHandler(int sig)
+{
+  printf("Quiting the program...\n");
+  isQuit = true;
+}
+
 
 void InitModules();
 bool WaitModules();
 void ClearModules();
-void PrintSummary(clock_t tStart, clock_t tStop, int nEvt);
+void PrintSummary(struct timeval tStart, struct timeval tStop, int nEvt);
 
 int nEvt = 100;
 
 int main()
 {
+  // CvClose must be called before the end of the program!!!
+  // interrupt signal(ctrl + c)
+  signal(SIGINT, IntHandler);
+
   // initiating V1718
   if (CvInit(ctlIdx, &ctlHdl) != cvSuccess)
     exit(0);
@@ -59,7 +76,7 @@ int main()
   InitModules();
   
   // acqusition loop
-  tStart = clock();
+  gettimeofday(&tStart, NULL);
   int16_t qdc1[16], tdc1[16];
   uint32_t qdcBuf1, tdcBuf1;
   printf("********************************************************************************************\n");
@@ -67,12 +84,17 @@ int main()
   printf("********************************************************************************************\n");
   
   for(int i = 0;i < nEvt;i++)
+  {
+    // check interrupt signal first
+    if(isQuit)
+      break;
+    
+    // wait until all modules are ready
+    if(!WaitModules())
     {
-      if(!WaitModules())
-	{
-	  printf("WaitModules Timeout!\n");
-	  break;
-	}
+	    printf("WaitModules Timeout!\n");
+      break;
+	  }
     
     // Output Register controll to trigger veto logic
     
@@ -153,7 +175,8 @@ int main()
   printf("********************************************************************************************\n");
   printf("************************************ End of DAQ loop ***************************************\n");
   printf("************************************ Summary         ***************************************\n");
-  PrintSummary(tStart, clock(), nEvt);
+  gettimeofday(&tStop, NULL);
+  PrintSummary(tStart, tStop, nEvt);
   printf("********************************************************************************************\n");
   // closing V1718
   if (CvClose(ctlHdl) != cvSuccess)
@@ -178,27 +201,28 @@ void InitModules()
 
 bool WaitModules()
 {
-  clock_t tPrev = clock();
-  clock_t tNew;
+  struct timeval tPrev, tNew;
   bool ready = false;
+  gettimeofday(&tPrev, NULL);
+  long tDiff;  // in ms
   while(true)
   {
-    tNew = clock();
+    gettimeofday(&tNew, NULL);
+    tDiff = (long)(1000*(tNew.tv_sec - tPrev.tv_sec) + (tNew.tv_usec - tPrev.tv_usec)/1000); 
     // check time out
-    if(timeOut > 0 && (int)(tNew - tPrev)/CLOCKS_PER_SEC > timeOut )
+    if(timeOut > tDiff && timeOut > 0)
     {
      return false;
     }
-    // check all module is ready
-    // printf("0x%x\n", CvRead16(ctlHdl, qdcBase1 + cv792StatReg1));
-    // printf("0x%x\n", CvRead16(ctlHdl, tdcBase1 + cv775StatReg1));
-    // printf("%d\n", ready);
     // ready if LSB of status register 1 is high
     ready = 
       ((CvRead16(ctlHdl, qdcBase1 + cv792StatReg1))&0x0001)
       &((CvRead16(ctlHdl, tdcBase1 + cv775StatReg1))&0x0001);
     if(ready==0x0001)
       return true;
+    // update previous time
+    tPrev.tv_sec = tNew.tv_sec;
+    tPrev.tv_usec = tNew.tv_usec;
   } 
 }
 
@@ -207,31 +231,28 @@ void ClearModules()
   // clearing QDC1 data buffer
   CvWrite16(ctlHdl, qdcBase1 + cv792BitSet2, 0x0004);
   CvWrite16(ctlHdl, qdcBase1 + cv792BitClr2, 0x0004);
-  CvWrite16(ctlHdl, qdcBase1 + cv792EvtCntRst, 0x0000);
   // clearing TDC1 data buffer
   CvWrite16(ctlHdl, tdcBase1 + cv775BitSet2, 0x0004);
   CvWrite16(ctlHdl, tdcBase1 + cv775BitClr2, 0x0004);
-  CvWrite16(ctlHdl, tdcBase1 + cv775EvtCntRst, 0x0000);
 }
 
-void PrintSummary(clock_t tStart, clock_t tStop, int nEvt)
+void PrintSummary(struct timeval tStart, struct timeval tStop, int nEvt)
 {
-  if(tStart > tStop)
-  {
-    printf("Warning : In PrintTimeInfo, tStart > tStop\n");
-    printf("Usage   : void PrintTimeInfo(tStart, tStop, nEvt)");
-    return;
-  }
-  unsigned long tDiff = tStop - tStart;
-  int msec = ((tDiff*1000)/CLOCKS_PER_SEC)%1000;
-  int sec = (tDiff/CLOCKS_PER_SEC)%60;
-  int min = ((tDiff/CLOCKS_PER_SEC)/60)%60;
-  int h = ((tDiff/CLOCKS_PER_SEC)/60*60)%24;
-  int day = ((tDiff/CLOCKS_PER_SEC)/(60*60*24));
+  int msec = (int)(tStop.tv_usec - tStart.tv_usec)/1000;
+  if(msec < 0)
+    msec += 1000;
+  int sec = tStop.tv_sec - tStart.tv_sec;
+  if(tStop.tv_usec < tStart.tv_usec)
+    sec--;
+  int min = (int)(sec/60)%60;
+  int h = (int)(sec/3600)%24;
+  int day = (int)sec/(60*60*24);
+  long long tDiffMs = 1000*sec + msec/1000;
+  sec = sec%60; 
   printf("Elapsed Time : %02dD %02dH %02dM %02dS %03dmS\n", day, h, min, sec, msec);
-  if(tStart != tStop)
+  if(tDiffMs != 0)
   {
-    double tRate = (double)nEvt*CLOCKS_PER_SEC/tDiff;
+    double tRate = (double)1000.*nEvt/tDiffMs;
     if(tRate > 100)
       printf("Trigger Rate : %3.3f kHz\n", tRate/1000);
     else
