@@ -58,34 +58,6 @@ CAENVME_API CvInit(short bdNum, int32_t *handle);
 CAENVME_API CvClose(int32_t handle);
 
 /*
-        CvReset
-        -----------------------------------------------------------------------------
-        Parameters:
-                [in] handle           : The handle that identifies the device.
-        -----------------------------------------------------------------------------
-        Returns:
-                CAENVNME_API containing the result of a command
-        -----------------------------------------------------------------------------
-        Description:
-                reset the controller and free all allocated memory.
-*/
-
-CAENVME_API CvReset(int32_t handle);
-
-/*
-        CvClose
-        -----------------------------------------------------------------------------
-        Parameters:
-                [in] handle           : The handle that identifies the device.
-        -----------------------------------------------------------------------------
-        Returns:
-                CAENVNME_API containing the result of a command
-        -----------------------------------------------------------------------------
-        Description:
-                Close the controller and free all allocated memory.
-*/
-
-/*
         CvRead32
         -----------------------------------------------------------------------------
         Parameters:

@@ -55,11 +55,8 @@ int main()
   if (CvInit(ctlIdx, &ctlHdl) != cvSuccess)
     exit(0);
 
-  CvReset(ctlHdl); // Annotated due to Reset Error
-
   // Initializing modules
   InitModules();
-  usleep(1000);
   
   // acqusition loop
   tStart = clock();

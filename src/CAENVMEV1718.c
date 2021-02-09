@@ -31,7 +31,13 @@ CAENVME_API CvInit(short bdNum, int32_t *handle)
 {
   CAENVME_API ret = CAENVME_Init(cvV1718, 0, bdNum, handle);
   if (ret != cvSuccess)
-    PrintErrInfo("CvInit", "CAENVME_Init", "Failed to open V1718.", ret);;
+    PrintErrInfo("CvInit", "CAENVME_Init", "Failed to open V1718.", ret);
+  else
+  {
+    ret = CAENVME_SystemReset(*handle);
+    if (ret != cvSuccess)
+      PrintErrInfo("CvReset", "CAENVME_SystemReset", "Failed to reset V1718.", ret);;
+  }
   return ret;
 }
 
@@ -40,14 +46,6 @@ CAENVME_API CvClose(int32_t handle)
   CAENVME_API ret = CAENVME_End(handle);
   if (ret != cvSuccess)
     PrintErrInfo("CvClose", "CAENVME_End", "Failed to close V1718.", ret);;
-  return ret;
-}
-
-CAENVME_API CvReset(int32_t handle)
-{
-  CAENVME_API ret = CAENVME_SystemReset(handle);
-  if (ret != cvSuccess)
-    PrintErrInfo("CvReset", "CAENVME_SystemReset", "Failed to reset V1718.", ret);;
   return ret;
 }
 
