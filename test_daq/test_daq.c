@@ -226,8 +226,6 @@ void PrintSummary(clock_t tStart, clock_t tStop, int nEvt)
     return;
   }
   unsigned long tDiff = tStop - tStart;
-  printf("%ld\n", tDiff);
-  printf("%ld\n", CLOCKS_PER_SEC);
   int msec = ((tDiff*1000)/CLOCKS_PER_SEC)%1000;
   int sec = (tDiff/CLOCKS_PER_SEC)%60;
   int min = ((tDiff/CLOCKS_PER_SEC)/60)%60;

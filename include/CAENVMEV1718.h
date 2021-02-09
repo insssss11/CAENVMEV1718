@@ -18,6 +18,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdarg.h>
 #include <malloc.h>
 #include "CAENVMElib.h"
 
@@ -219,6 +220,41 @@ CAENVME_API CvWrite32Swapped(int32_t handle, uint32_t addr, uint32_t data);
 */
 
 CAENVME_API CvWrite16Swapped(int32_t handle, uint32_t addr, uint16_t data);
+
+/*
+        CvStartPulser
+        -----------------------------------------------------------------------------
+        Parameters:
+                [in]  Handle          : The handle that identifies the device.
+                [in]  Pulser to start : Select pulseA or pulseB (CVPulserSelect enum)
+                [in]  Period          : Pulse Period in an unit of 25 ns. 
+                [in]  Width           : Pulse width in an unit of 25 ns.
+        -----------------------------------------------------------------------------
+        Returns: 
+        -----------------------------------------------------------------------------
+        Description:
+                Configure a selected pulser and Start generating the pulse
+                If this function has been called,
+                the configured pulser can be started or stopped
+                only by a software control.
+*/
+
+void CvStartPulser(int32_t handle, CVPulserSelect pulSel, uint8_t period, uint8_t width);
+
+/*
+        CvStopPulser
+        -----------------------------------------------------------------------------
+        Parameters:
+                [in]  Handle          : The handle that identifies the device.
+                [in]  Pulser to stop  : Select pulseA or pulseB (CVPulserSelect enum)
+        -----------------------------------------------------------------------------
+        Returns: 
+        -----------------------------------------------------------------------------
+        Description:
+                Stop the pulse.
+*/
+
+void CvStopPulser(int32_t handle, CVPulserSelect pulSel);
 
 #endif // LINUX
 
